@@ -1,0 +1,29 @@
+{
+  "dependencies": [
+    {
+      "name": "cpu-features",
+      "platform": "android"
+    },
+    {
+      "name": "oboe",
+      "platform": "android"
+    },
+    {
+      "name": "opus",
+      "host": false
+    },
+    {
+      "name": "libyuv",
+      "host": false
+    }
+  ],
+  "vcpkg-configuration": {
+    "default-registry": {
+      "kind": "builtin",
+      "baseline": "120deac3062162151622ca4860575a33844ba10b"
+    },
+    "overlay-ports": [
+      "./res/vcpkg"
+    ]
+  }
+}
