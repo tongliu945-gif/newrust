@@ -1,0 +1,105 @@
+name: Build Custom Android APK
+
+on:
+  # 手动触发
+  workflow_dispatch:
+    inputs:
+      upload-artifact:
+        description: 'Upload Artifact'
+        type: boolean
+        default: true
+  
+  # 推送到main分支时触发
+  push:
+    branches:
+      - main
+      - master
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+
+jobs:
+  build-android-apk:
+    name: Build Android APK (arm64-v8a)
+    runs-on: ubuntu-22.04
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+      
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          api-level: 34
+          build-tools: 34.0.0
+          ndk-version: 25.1.8937393
+      
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          targets: aarch64-linux-android
+      
+      - name: Install cargo-ndk
+        run: cargo install cargo-ndk
+      
+      - name: Setup Flutter
+        run: |
+          cd flutter
+          # 下载并解压 Flutter 引擎
+          ENGINE_VERSION=$(cat bin/internal/engine.version)
+          echo "Flutter Engine Version: $ENGINE_VERSION"
+          
+      - name: Get Flutter dependencies
+        run: |
+          cd flutter
+          ./bin/flutter pub get
+      
+      - name: Build Rust library for Android
+        env:
+          ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_ROOT }}
+        run: |
+          export ANDROID_NDK_HOME=$ANDROID_NDK_ROOT
+          export PATH="${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin:${PATH}"
+          
+          # 编译 Rust 库 (arm64)
+          cargo ndk --platform 21 --target aarch64-linux-android build --release --features "flutter,mediacodec,use_dasp"
+          
+          # 复制库文件到 jniLibs
+          mkdir -p flutter/android/app/src/main/jniLibs/arm64-v8a
+          cp target/aarch64-linux-android/release/liblibrustdesk.so flutter/android/app/src/main/jniLibs/arm64-v8a/
+      
+      - name: Build Flutter APK
+        run: |
+          cd flutter
+          ./bin/flutter build apk --release --target-platform android-arm64
+      
+      - name: Rename APK
+        run: |
+          cd flutter/build/app/outputs/flutter-apk
+          VERSION=$(grep "version:" ../../../pubspec.yaml | awk '{print $2}' | tr -d "'")
+          mv app-release.apk rustdesk-custom-${VERSION}-arm64-v8a.apk || mv app-release.apk rustdesk-custom-arm64-v8a.apk
+      
+      - name: Upload APK
+        if: ${{ github.event.inputs.upload-artifact == 'true' || github.event_name == 'push' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: rustdesk-custom-android-apk
+          path: flutter/build/app/outputs/flutter-apk/*.apk
+      
+      - name: Create Release (if tagged)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: flutter/build/app/outputs/flutter-apk/*.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
