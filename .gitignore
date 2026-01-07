@@ -61,3 +61,10 @@ vcpkg_installed
 flutter/lib/generated_plugin_registrant.dart
 libsciter.dylib
 flutter/web/
+
+# Android signing keys (敏感文件，不要提交)
+flutter/android/key.properties
+flutter/android/*.jks
+flutter/android/*.keystore
+*.jks
+*.keystore
