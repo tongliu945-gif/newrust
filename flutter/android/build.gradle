@@ -14,12 +14,18 @@ subprojects {
     project.evaluationDependsOn(':app')
 }
 
-// 为所有子项目设置 Kotlin JVM 目标，解决兼容性问题
+// 为所有子项目统一设置 Java 和 Kotlin JVM 目标版本
 subprojects { subproject ->
+    // 设置 Kotlin JVM 目标
     subproject.tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
         kotlinOptions {
             jvmTarget = "17"
         }
+    }
+    // 设置 Java 编译选项
+    subproject.tasks.withType(JavaCompile).configureEach {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 }
 
