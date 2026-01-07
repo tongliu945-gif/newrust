@@ -76,10 +76,20 @@ jobs:
       
       - name: Install vcpkg dependencies for Android
         run: |
-          # 运行 Android 依赖构建脚本
-          cd flutter
+          export VCPKG_ROOT=/opt/vcpkg
           export ANDROID_NDK_HOME=$ANDROID_NDK_ROOT
-          bash build_android_deps.sh arm64-v8a || true
+          
+          # 直接安装所需的 vcpkg 依赖
+          $VCPKG_ROOT/vcpkg install \
+            opus:arm64-android \
+            libyuv:arm64-android \
+            libvpx:arm64-android \
+            aom:arm64-android \
+            --x-install-root="$VCPKG_ROOT/installed"
+          
+          # 列出已安装的包
+          ls -la $VCPKG_ROOT/installed/arm64-android/lib/ || true
+          ls -la $VCPKG_ROOT/installed/arm64-android/include/ || true
         env:
           VCPKG_ROOT: /opt/vcpkg
           ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_ROOT }}

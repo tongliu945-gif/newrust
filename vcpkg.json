@@ -15,6 +15,14 @@
     {
       "name": "libyuv",
       "host": false
+    },
+    {
+      "name": "libvpx",
+      "host": false
+    },
+    {
+      "name": "aom",
+      "host": false
     }
   ],
   "vcpkg-configuration": {
