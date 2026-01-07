@@ -76,7 +76,36 @@ jobs:
             libgtk-3-dev \
             liblzma-dev \
             libstdc++-12-dev \
-            protobuf-compiler
+            protobuf-compiler \
+            nasm \
+            yasm
+
+      - name: Setup vcpkg
+        run: |
+          git clone https://github.com/Microsoft/vcpkg.git $HOME/vcpkg
+          cd $HOME/vcpkg
+          ./bootstrap-vcpkg.sh
+          echo "VCPKG_ROOT=$HOME/vcpkg" >> $GITHUB_ENV
+
+      - name: Build vcpkg dependencies (arm64)
+        run: |
+          export ANDROID_NDK=${{ steps.setup-ndk.outputs.ndk-path }}
+          export VCPKG_ROOT=$HOME/vcpkg
+          $VCPKG_ROOT/vcpkg install --triplet arm64-android --x-install-root="$VCPKG_ROOT/installed"
+        env:
+          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+
+      - name: Build vcpkg dependencies (arm-neon)
+        run: |
+          export ANDROID_NDK=${{ steps.setup-ndk.outputs.ndk-path }}
+          export VCPKG_ROOT=$HOME/vcpkg
+          $VCPKG_ROOT/vcpkg install --triplet arm-neon-android --x-install-root="$VCPKG_ROOT/installed"
+          # Move arm-neon-android to arm-android as expected by cargo
+          if [ -d "$VCPKG_ROOT/installed/arm-neon-android" ]; then
+            mv "$VCPKG_ROOT/installed/arm-neon-android" "$VCPKG_ROOT/installed/arm-android"
+          fi
+        env:
+          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
 
       - name: Cache Cargo
         uses: actions/cache@v4
@@ -128,6 +157,7 @@ jobs:
         env:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
           ANDROID_NDK_ROOT: ${{ steps.setup-ndk.outputs.ndk-path }}
+          VCPKG_ROOT: ${{ env.VCPKG_ROOT }}
 
       - name: Build Rust library for Android (armeabi-v7a)
         run: |
@@ -135,6 +165,7 @@ jobs:
         env:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
           ANDROID_NDK_ROOT: ${{ steps.setup-ndk.outputs.ndk-path }}
+          VCPKG_ROOT: ${{ env.VCPKG_ROOT }}
 
       - name: Flutter pub get
         run: |
