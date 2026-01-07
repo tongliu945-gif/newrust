@@ -67,15 +67,34 @@ jobs:
           echo "Dependencies fetched successfully"
         continue-on-error: false
       
+      - name: Setup vcpkg with Github Actions binary cache
+        uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgDirectory: /opt/vcpkg
+          vcpkgGitCommitId: '120deac3062162151622ca4860575a33844ba10b'
+          doNotCache: false
+      
+      - name: Install vcpkg dependencies for Android
+        run: |
+          # 运行 Android 依赖构建脚本
+          cd flutter
+          export ANDROID_NDK_HOME=$ANDROID_NDK_ROOT
+          bash build_android_deps.sh arm64-v8a || true
+        env:
+          VCPKG_ROOT: /opt/vcpkg
+          ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_ROOT }}
+      
       - name: Build Rust library for Android
         env:
           ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_ROOT }}
+          VCPKG_ROOT: /opt/vcpkg
         run: |
           export ANDROID_NDK_HOME=$ANDROID_NDK_ROOT
           export PATH="${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin:${PATH}"
+          export VCPKG_ROOT=/opt/vcpkg
           
           # 编译 Rust 库 (arm64)
-          cargo ndk --platform 21 --target aarch64-linux-android build --release --features "flutter,mediacodec,use_dasp"
+          cargo ndk --platform 21 --target aarch64-linux-android build --release --features "flutter,use_dasp"
           
           # 复制库文件到 jniLibs
           mkdir -p flutter/android/app/src/main/jniLibs/arm64-v8a
