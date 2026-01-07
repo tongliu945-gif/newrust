@@ -74,6 +74,11 @@ jobs:
           vcpkgGitCommitId: '120deac3062162151622ca4860575a33844ba10b'
           doNotCache: false
       
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y nasm yasm
+      
       - name: Install vcpkg dependencies for Android
         run: |
           export VCPKG_ROOT=/opt/vcpkg
