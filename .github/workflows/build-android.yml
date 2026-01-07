@@ -153,19 +153,35 @@ jobs:
 
       - name: Build Rust library for Android (arm64)
         run: |
+          NDK=${{ steps.setup-ndk.outputs.ndk-path }}
+          SYSROOT=$NDK/toolchains/llvm/prebuilt/linux-x86_64/sysroot
+          VCPKG_INCLUDE=$HOME/vcpkg/installed/arm64-android/include
+          
+          export BINDGEN_EXTRA_CLANG_ARGS="--sysroot=$SYSROOT -I$VCPKG_INCLUDE"
+          export CFLAGS_aarch64_linux_android="--sysroot=$SYSROOT -I$VCPKG_INCLUDE"
+          export CXXFLAGS_aarch64_linux_android="--sysroot=$SYSROOT -I$VCPKG_INCLUDE"
+          
           cargo ndk -t arm64-v8a -o flutter/android/app/src/main/jniLibs build --release --features flutter
         env:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
           ANDROID_NDK_ROOT: ${{ steps.setup-ndk.outputs.ndk-path }}
-          VCPKG_ROOT: ${{ env.VCPKG_ROOT }}
+          VCPKG_ROOT: /home/runner/vcpkg
 
       - name: Build Rust library for Android (armeabi-v7a)
         run: |
+          NDK=${{ steps.setup-ndk.outputs.ndk-path }}
+          SYSROOT=$NDK/toolchains/llvm/prebuilt/linux-x86_64/sysroot
+          VCPKG_INCLUDE=$HOME/vcpkg/installed/arm-android/include
+          
+          export BINDGEN_EXTRA_CLANG_ARGS="--sysroot=$SYSROOT -I$VCPKG_INCLUDE"
+          export CFLAGS_armv7_linux_androideabi="--sysroot=$SYSROOT -I$VCPKG_INCLUDE"
+          export CXXFLAGS_armv7_linux_androideabi="--sysroot=$SYSROOT -I$VCPKG_INCLUDE"
+          
           cargo ndk -t armeabi-v7a -o flutter/android/app/src/main/jniLibs build --release --features flutter
         env:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
           ANDROID_NDK_ROOT: ${{ steps.setup-ndk.outputs.ndk-path }}
-          VCPKG_ROOT: ${{ env.VCPKG_ROOT }}
+          VCPKG_ROOT: /home/runner/vcpkg
 
       - name: Flutter pub get
         run: |
