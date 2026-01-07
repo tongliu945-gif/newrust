@@ -52,16 +52,15 @@ jobs:
         run: cargo install cargo-ndk
       
       - name: Setup Flutter
-        run: |
-          cd flutter
-          # 下载并解压 Flutter 引擎
-          ENGINE_VERSION=$(cat bin/internal/engine.version)
-          echo "Flutter Engine Version: $ENGINE_VERSION"
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.16.0'
+          channel: 'stable'
           
       - name: Get Flutter dependencies
         run: |
           cd flutter
-          ./bin/flutter pub get
+          flutter pub get
       
       - name: Build Rust library for Android
         env:
@@ -80,7 +79,7 @@ jobs:
       - name: Build Flutter APK
         run: |
           cd flutter
-          ./bin/flutter build apk --release --target-platform android-arm64
+          flutter build apk --release --target-platform android-arm64
       
       - name: Rename APK
         run: |
