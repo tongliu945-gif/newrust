@@ -18,8 +18,9 @@ cert.pfx
 *jpg
 sciter.dll
 **pdb
-src/bridge_generated.rs
-src/bridge_generated.io.rs
+# 注释掉以便提交到仓库用于CI构建
+# src/bridge_generated.rs
+# src/bridge_generated.io.rs
 *deb
 rustdesk
 *.cache
