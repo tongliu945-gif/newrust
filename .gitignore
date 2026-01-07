@@ -13,9 +13,14 @@ src/version.rs
 *tgz
 cert.pfx
 *.bak
-*png
-*svg
-*jpg
+# 注释掉图片忽略规则，以便CI构建可以使用应用图标
+# *png
+# *svg  
+# *jpg
+# 只忽略根目录的图片，保留 flutter 资源目录的图片
+/*.png
+/*.svg
+/*.jpg
 sciter.dll
 **pdb
 # 注释掉以便提交到仓库用于CI构建
