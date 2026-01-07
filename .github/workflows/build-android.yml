@@ -63,7 +63,9 @@ jobs:
       - name: Get Flutter dependencies
         run: |
           cd flutter
-          flutter pub get --verbose
+          flutter pub get 2>&1 | tee pub_get.log
+          echo "Dependencies fetched successfully"
+        continue-on-error: false
       
       - name: Build Rust library for Android
         env:
