@@ -42,8 +42,8 @@ flatpak/.flatpak-builder/debian-binary
 flatpak/build/**
 flatpak/repo/**
 flatpak/*.flatpak
-# bridge file
-lib/generated_bridge.dart
+# bridge file - 注释掉以便CI构建
+# lib/generated_bridge.dart
 # vscode devcontainer
 .gitconfig
 .vscode-server/
