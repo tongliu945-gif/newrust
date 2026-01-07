@@ -40,9 +40,7 @@ jobs:
           cache: true
 
       - name: Setup Rust
-        uses: dtolnay/rust-action@stable
-        with:
-          toolchain: ${{ env.RUST_TOOLCHAIN }}
+        uses: dtolnay/rust-toolchain@stable
 
       - name: Install Rust Android targets
         run: |
@@ -103,26 +101,25 @@ jobs:
             ${{ runner.os }}-gradle-
 
       - name: Setup signing key
-        if: ${{ github.event_name != 'pull_request' }}
         run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > flutter/android/release.jks
-          echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" > flutter/android/key.properties
-          echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> flutter/android/key.properties
-          echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> flutter/android/key.properties
-          echo "storeFile=../release.jks" >> flutter/android/key.properties
-
-      - name: Setup debug signing (for PR)
-        if: ${{ github.event_name == 'pull_request' }}
-        run: |
-          # 为 PR 创建一个临时的 debug keystore
-          keytool -genkey -v -keystore flutter/android/debug.jks \
-            -storepass android -alias androiddebugkey -keypass android \
-            -keyalg RSA -keysize 2048 -validity 10000 \
-            -dname "CN=Android Debug,O=Android,C=US" -noprompt
-          echo "storePassword=android" > flutter/android/key.properties
-          echo "keyPassword=android" >> flutter/android/key.properties
-          echo "keyAlias=androiddebugkey" >> flutter/android/key.properties
-          echo "storeFile=../debug.jks" >> flutter/android/key.properties
+          if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
+            echo "使用 release 签名密钥..."
+            echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > flutter/android/release.jks
+            echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" > flutter/android/key.properties
+            echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> flutter/android/key.properties
+            echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> flutter/android/key.properties
+            echo "storeFile=../release.jks" >> flutter/android/key.properties
+          else
+            echo "未配置签名密钥，使用 debug 签名..."
+            keytool -genkey -v -keystore flutter/android/debug.jks \
+              -storepass android -alias androiddebugkey -keypass android \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -dname "CN=Android Debug,O=Android,C=US" -noprompt
+            echo "storePassword=android" > flutter/android/key.properties
+            echo "keyPassword=android" >> flutter/android/key.properties
+            echo "keyAlias=androiddebugkey" >> flutter/android/key.properties
+            echo "storeFile=../debug.jks" >> flutter/android/key.properties
+          fi
 
       - name: Build Rust library for Android (arm64)
         run: |
