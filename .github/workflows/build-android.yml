@@ -175,13 +175,20 @@ jobs:
       - name: Build Rust library for Android (arm64)
         run: |
           NDK=${{ steps.setup-ndk.outputs.ndk-path }}
-          SYSROOT=$NDK/toolchains/llvm/prebuilt/linux-x86_64/sysroot
+          TOOLCHAIN=$NDK/toolchains/llvm/prebuilt/linux-x86_64
+          SYSROOT=$TOOLCHAIN/sysroot
           VCPKG_INCLUDE=$HOME/vcpkg/installed/arm64-android/include
           
           echo "=== Debug: Checking include paths ==="
           echo "VCPKG_INCLUDE: $VCPKG_INCLUDE"
           ls -la $VCPKG_INCLUDE/opus/ || echo "Opus headers not found!"
           echo "LIBCLANG_PATH: $LIBCLANG_PATH"
+          
+          # Set cross-compiler for ring and other C code
+          export CC_aarch64_linux_android="$TOOLCHAIN/bin/aarch64-linux-android21-clang"
+          export CXX_aarch64_linux_android="$TOOLCHAIN/bin/aarch64-linux-android21-clang++"
+          export AR_aarch64_linux_android="$TOOLCHAIN/bin/llvm-ar"
+          export RANLIB_aarch64_linux_android="$TOOLCHAIN/bin/llvm-ranlib"
           
           # Set clang target for Android aarch64 and include paths
           # LIBCLANG_PATH is set globally from Install dependencies step
@@ -192,6 +199,7 @@ jobs:
           export C_INCLUDE_PATH="$VCPKG_INCLUDE:$SYSROOT/usr/include"
           export CPLUS_INCLUDE_PATH="$VCPKG_INCLUDE:$SYSROOT/usr/include"
           
+          echo "CC_aarch64_linux_android: $CC_aarch64_linux_android"
           echo "BINDGEN_EXTRA_CLANG_ARGS: $BINDGEN_EXTRA_CLANG_ARGS"
           
           cargo ndk -t arm64-v8a -o flutter/android/app/src/main/jniLibs build --release --features flutter
@@ -203,8 +211,15 @@ jobs:
       - name: Build Rust library for Android (armeabi-v7a)
         run: |
           NDK=${{ steps.setup-ndk.outputs.ndk-path }}
-          SYSROOT=$NDK/toolchains/llvm/prebuilt/linux-x86_64/sysroot
+          TOOLCHAIN=$NDK/toolchains/llvm/prebuilt/linux-x86_64
+          SYSROOT=$TOOLCHAIN/sysroot
           VCPKG_INCLUDE=$HOME/vcpkg/installed/arm-android/include
+          
+          # Set cross-compiler for ring and other C code
+          export CC_armv7_linux_androideabi="$TOOLCHAIN/bin/armv7a-linux-androideabi21-clang"
+          export CXX_armv7_linux_androideabi="$TOOLCHAIN/bin/armv7a-linux-androideabi21-clang++"
+          export AR_armv7_linux_androideabi="$TOOLCHAIN/bin/llvm-ar"
+          export RANLIB_armv7_linux_androideabi="$TOOLCHAIN/bin/llvm-ranlib"
           
           # Set clang target for Android armv7 and include paths
           # LIBCLANG_PATH is set globally from Install dependencies step
