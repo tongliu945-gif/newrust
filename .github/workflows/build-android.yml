@@ -70,6 +70,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             clang \
+            libclang-dev \
+            llvm-dev \
             cmake \
             ninja-build \
             pkg-config \
@@ -79,6 +81,11 @@ jobs:
             protobuf-compiler \
             nasm \
             yasm
+          # Find and export libclang path for bindgen
+          LLVM_CONFIG=$(which llvm-config || which llvm-config-14 || which llvm-config-15 || which llvm-config-16)
+          if [ -n "$LLVM_CONFIG" ]; then
+            echo "LIBCLANG_PATH=$($LLVM_CONFIG --libdir)" >> $GITHUB_ENV
+          fi
 
       - name: Setup vcpkg
         run: |
@@ -162,11 +169,10 @@ jobs:
           VCPKG_INCLUDE=$HOME/vcpkg/installed/arm64-android/include
           
           # Set clang target for Android aarch64 and include paths
+          # LIBCLANG_PATH is set globally from Install dependencies step
           export BINDGEN_EXTRA_CLANG_ARGS="--target=aarch64-linux-android21 --sysroot=$SYSROOT -I$VCPKG_INCLUDE -I$SYSROOT/usr/include -I$SYSROOT/usr/include/aarch64-linux-android"
           export CFLAGS_aarch64_linux_android="--sysroot=$SYSROOT -I$VCPKG_INCLUDE"
           export CXXFLAGS_aarch64_linux_android="--sysroot=$SYSROOT -I$VCPKG_INCLUDE"
-          export CLANG_PATH="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/clang"
-          export LIBCLANG_PATH="$NDK/toolchains/llvm/prebuilt/linux-x86_64/lib"
           
           cargo ndk -t arm64-v8a -o flutter/android/app/src/main/jniLibs build --release --features flutter
         env:
@@ -181,11 +187,10 @@ jobs:
           VCPKG_INCLUDE=$HOME/vcpkg/installed/arm-android/include
           
           # Set clang target for Android armv7 and include paths
+          # LIBCLANG_PATH is set globally from Install dependencies step
           export BINDGEN_EXTRA_CLANG_ARGS="--target=armv7a-linux-androideabi21 --sysroot=$SYSROOT -I$VCPKG_INCLUDE -I$SYSROOT/usr/include -I$SYSROOT/usr/include/arm-linux-androideabi"
           export CFLAGS_armv7_linux_androideabi="--sysroot=$SYSROOT -I$VCPKG_INCLUDE"
           export CXXFLAGS_armv7_linux_androideabi="--sysroot=$SYSROOT -I$VCPKG_INCLUDE"
-          export CLANG_PATH="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/clang"
-          export LIBCLANG_PATH="$NDK/toolchains/llvm/prebuilt/linux-x86_64/lib"
           
           cargo ndk -t armeabi-v7a -o flutter/android/app/src/main/jniLibs build --release --features flutter
         env:
