@@ -184,22 +184,22 @@ jobs:
           ls -la $VCPKG_INCLUDE/opus/ || echo "Opus headers not found!"
           echo "LIBCLANG_PATH: $LIBCLANG_PATH"
           
-          # Set cross-compiler for ring and other C code
+          # Set cross-compiler for ring and other C code (use TARGET_* for cc-rs crate)
+          export TARGET_CC="$TOOLCHAIN/bin/aarch64-linux-android21-clang"
+          export TARGET_CXX="$TOOLCHAIN/bin/aarch64-linux-android21-clang++"
+          export TARGET_AR="$TOOLCHAIN/bin/llvm-ar"
+          export TARGET_RANLIB="$TOOLCHAIN/bin/llvm-ranlib"
           export CC_aarch64_linux_android="$TOOLCHAIN/bin/aarch64-linux-android21-clang"
           export CXX_aarch64_linux_android="$TOOLCHAIN/bin/aarch64-linux-android21-clang++"
           export AR_aarch64_linux_android="$TOOLCHAIN/bin/llvm-ar"
-          export RANLIB_aarch64_linux_android="$TOOLCHAIN/bin/llvm-ranlib"
           
           # Set clang target for Android aarch64 and include paths
           # LIBCLANG_PATH is set globally from Install dependencies step
           export BINDGEN_EXTRA_CLANG_ARGS="--target=aarch64-linux-android21 --sysroot=$SYSROOT -I$VCPKG_INCLUDE -I$SYSROOT/usr/include -I$SYSROOT/usr/include/aarch64-linux-android"
           export CFLAGS_aarch64_linux_android="--sysroot=$SYSROOT -I$VCPKG_INCLUDE"
           export CXXFLAGS_aarch64_linux_android="--sysroot=$SYSROOT -I$VCPKG_INCLUDE"
-          # Additional include path for clang
-          export C_INCLUDE_PATH="$VCPKG_INCLUDE:$SYSROOT/usr/include"
-          export CPLUS_INCLUDE_PATH="$VCPKG_INCLUDE:$SYSROOT/usr/include"
           
-          echo "CC_aarch64_linux_android: $CC_aarch64_linux_android"
+          echo "TARGET_CC: $TARGET_CC"
           echo "BINDGEN_EXTRA_CLANG_ARGS: $BINDGEN_EXTRA_CLANG_ARGS"
           
           cargo ndk -t arm64-v8a -o flutter/android/app/src/main/jniLibs build --release --features flutter
@@ -215,20 +215,20 @@ jobs:
           SYSROOT=$TOOLCHAIN/sysroot
           VCPKG_INCLUDE=$HOME/vcpkg/installed/arm-android/include
           
-          # Set cross-compiler for ring and other C code
+          # Set cross-compiler for ring and other C code (use TARGET_* for cc-rs crate)
+          export TARGET_CC="$TOOLCHAIN/bin/armv7a-linux-androideabi21-clang"
+          export TARGET_CXX="$TOOLCHAIN/bin/armv7a-linux-androideabi21-clang++"
+          export TARGET_AR="$TOOLCHAIN/bin/llvm-ar"
+          export TARGET_RANLIB="$TOOLCHAIN/bin/llvm-ranlib"
           export CC_armv7_linux_androideabi="$TOOLCHAIN/bin/armv7a-linux-androideabi21-clang"
           export CXX_armv7_linux_androideabi="$TOOLCHAIN/bin/armv7a-linux-androideabi21-clang++"
           export AR_armv7_linux_androideabi="$TOOLCHAIN/bin/llvm-ar"
-          export RANLIB_armv7_linux_androideabi="$TOOLCHAIN/bin/llvm-ranlib"
           
           # Set clang target for Android armv7 and include paths
           # LIBCLANG_PATH is set globally from Install dependencies step
           export BINDGEN_EXTRA_CLANG_ARGS="--target=armv7a-linux-androideabi21 --sysroot=$SYSROOT -I$VCPKG_INCLUDE -I$SYSROOT/usr/include -I$SYSROOT/usr/include/arm-linux-androideabi"
           export CFLAGS_armv7_linux_androideabi="--sysroot=$SYSROOT -I$VCPKG_INCLUDE"
           export CXXFLAGS_armv7_linux_androideabi="--sysroot=$SYSROOT -I$VCPKG_INCLUDE"
-          # Additional include path for clang
-          export C_INCLUDE_PATH="$VCPKG_INCLUDE:$SYSROOT/usr/include"
-          export CPLUS_INCLUDE_PATH="$VCPKG_INCLUDE:$SYSROOT/usr/include"
           
           cargo ndk -t armeabi-v7a -o flutter/android/app/src/main/jniLibs build --release --features flutter
         env:
