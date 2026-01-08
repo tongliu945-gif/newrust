@@ -11,20 +11,73 @@ on:
 
 env:
   FLUTTER_VERSION: "3.24.5"
-  RUST_TOOLCHAIN: "stable"
-  CARGO_NDK_VERSION: "3.5.4"
+  # Use same versions as official build
+  RUST_VERSION: "1.75"
+  CARGO_NDK_VERSION: "3.1.2"
   NDK_VERSION: "r27c"
-  ANDROID_API: "34"
+  VCPKG_COMMIT_ID: "120deac3062162151622ca4860575a33844ba10b"
 
 jobs:
   build-android:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     
     steps:
+      - name: Free Disk Space (Ubuntu)
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: false
+          android: false
+          dotnet: true
+          haskell: true
+          large-packages: false
+          docker-images: true
+          swap-storage: false
+
+      - name: Export GitHub Actions cache environment variables
+        uses: actions/github-script@v6
+        with:
+          script: |
+            core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
+            core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
+
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           submodules: recursive
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            clang \
+            cmake \
+            curl \
+            gcc-multilib \
+            git \
+            g++ \
+            g++-multilib \
+            libayatana-appindicator3-dev \
+            libasound2-dev \
+            libc6-dev \
+            libclang-dev \
+            libgstreamer1.0-dev \
+            libgstreamer-plugins-base1.0-dev \
+            libgtk-3-dev \
+            libpam0g-dev \
+            libpulse-dev \
+            libva-dev \
+            libxcb-randr0-dev \
+            libxcb-shape0-dev \
+            libxcb-xfixes0-dev \
+            libxdo-dev \
+            libxfixes-dev \
+            llvm-dev \
+            nasm \
+            ninja-build \
+            openjdk-17-jdk-headless \
+            pkg-config \
+            tree \
+            wget
 
       - name: Setup Java JDK
         uses: actions/setup-java@v4
@@ -39,18 +92,24 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+      - name: Patch flutter
+        run: |
+          cd $(dirname $(dirname $(which flutter)))
+          [[ "3.24.5" == ${{ env.FLUTTER_VERSION }} ]] && git apply ${{ github.workspace }}/.github/patches/flutter_3.24.4_dropdown_menu_enableFilter.diff || true
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+          components: "rustfmt"
 
       - name: Install Rust Android targets
         run: |
           rustup target add aarch64-linux-android
           rustup target add armv7-linux-androideabi
-          rustup target add x86_64-linux-android
-          rustup target add i686-linux-android
 
       - name: Install cargo-ndk
-        run: cargo install cargo-ndk --version ${{ env.CARGO_NDK_VERSION }}
+        run: cargo install cargo-ndk --version ${{ env.CARGO_NDK_VERSION }} --locked
 
       - name: Setup Android NDK
         uses: nttld/setup-ndk@v1
@@ -59,109 +118,67 @@ jobs:
           ndk-version: ${{ env.NDK_VERSION }}
           add-to-path: true
 
-      - name: Set NDK environment
-        run: |
-          echo "ANDROID_NDK_HOME=${{ steps.setup-ndk.outputs.ndk-path }}" >> $GITHUB_ENV
-          echo "ANDROID_NDK_ROOT=${{ steps.setup-ndk.outputs.ndk-path }}" >> $GITHUB_ENV
-          echo "NDK_HOME=${{ steps.setup-ndk.outputs.ndk-path }}" >> $GITHUB_ENV
+      - name: Setup vcpkg with Github Actions binary cache
+        uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgDirectory: /opt/artifacts/vcpkg
+          vcpkgGitCommitId: ${{ env.VCPKG_COMMIT_ID }}
+          doNotCache: false
 
-      - name: Install dependencies
+      - name: Install vcpkg dependencies (arm64)
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            clang \
-            libclang-dev \
-            llvm-dev \
-            cmake \
-            ninja-build \
-            pkg-config \
-            libgtk-3-dev \
-            liblzma-dev \
-            libstdc++-12-dev \
-            protobuf-compiler \
-            nasm \
-            yasm
-          # Find and export libclang path for bindgen
-          LLVM_CONFIG=$(which llvm-config || which llvm-config-14 || which llvm-config-15 || which llvm-config-16)
-          if [ -n "$LLVM_CONFIG" ]; then
-            echo "LIBCLANG_PATH=$($LLVM_CONFIG --libdir)" >> $GITHUB_ENV
+          if ! ./flutter/build_android_deps.sh "arm64-v8a"; then
+            find "${VCPKG_ROOT}/" -name "*.log" | while read -r _1; do
+              echo "$_1:"
+              echo "======"
+              cat "$_1"
+              echo "======"
+              echo ""
+            done
+            exit 1
           fi
-
-      - name: Setup vcpkg
-        run: |
-          git clone https://github.com/Microsoft/vcpkg.git $HOME/vcpkg
-          cd $HOME/vcpkg
-          ./bootstrap-vcpkg.sh
-          echo "VCPKG_ROOT=$HOME/vcpkg" >> $GITHUB_ENV
-
-      - name: Build vcpkg dependencies (arm64)
-        run: |
-          export ANDROID_NDK=${{ steps.setup-ndk.outputs.ndk-path }}
-          export VCPKG_ROOT=$HOME/vcpkg
-          # Run vcpkg install from project root where vcpkg.json is located
-          cd $GITHUB_WORKSPACE
-          echo "=== vcpkg.json content ==="
-          cat vcpkg.json
-          echo "=== Installing vcpkg packages ==="
-          $VCPKG_ROOT/vcpkg install --triplet arm64-android --x-install-root="$VCPKG_ROOT/installed" --overlay-ports=res/vcpkg
-          echo "=== Verifying installed files ==="
-          ls -la $VCPKG_ROOT/installed/arm64-android/include/ || echo "Include dir not found"
-          ls -la $VCPKG_ROOT/installed/arm64-android/include/opus/ || echo "Opus include dir not found"
-          ls -la $VCPKG_ROOT/installed/arm64-android/lib/ || echo "Lib dir not found"
         env:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+          ANDROID_NDK: ${{ steps.setup-ndk.outputs.ndk-path }}
 
-      - name: Build vcpkg dependencies (arm-neon)
+      - name: Install vcpkg dependencies (armeabi-v7a)
         run: |
-          export ANDROID_NDK=${{ steps.setup-ndk.outputs.ndk-path }}
-          export VCPKG_ROOT=$HOME/vcpkg
-          # Run vcpkg install from project root where vcpkg.json is located
-          cd $GITHUB_WORKSPACE
-          $VCPKG_ROOT/vcpkg install --triplet arm-neon-android --x-install-root="$VCPKG_ROOT/installed" --overlay-ports=res/vcpkg
-          # Move arm-neon-android to arm-android as expected by cargo
-          if [ -d "$VCPKG_ROOT/installed/arm-neon-android" ]; then
-            mv "$VCPKG_ROOT/installed/arm-neon-android" "$VCPKG_ROOT/installed/arm-android"
+          if ! ./flutter/build_android_deps.sh "armeabi-v7a"; then
+            find "${VCPKG_ROOT}/" -name "*.log" | while read -r _1; do
+              echo "$_1:"
+              echo "======"
+              cat "$_1"
+              echo "======"
+              echo ""
+            done
+            exit 1
           fi
-          echo "=== Verifying arm-android installed files ==="
-          ls -la $VCPKG_ROOT/installed/arm-android/include/ || echo "Include dir not found"
-          ls -la $VCPKG_ROOT/installed/arm-android/include/opus/ || echo "Opus include dir not found"
         env:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+          ANDROID_NDK: ${{ steps.setup-ndk.outputs.ndk-path }}
 
-      - name: Cache Cargo
-        uses: actions/cache@v4
+      - uses: Swatinem/rust-cache@v2
         with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-android-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-android-
+          prefix-key: rustdesk-lib-cache-android
+          key: aarch64-linux-android
 
-      - name: Cache Gradle
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-
+      - name: Generate bridge
+        run: |
+          # Generate the bridge files if needed
+          cd flutter && flutter pub get && cd ..
+          # The bridge files should be generated by flutter_rust_bridge
 
       - name: Setup signing key
         run: |
           if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
-            echo "使用 release 签名密钥..."
+            echo "Using release signing key..."
             echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > flutter/android/release.jks
             echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" > flutter/android/key.properties
             echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> flutter/android/key.properties
             echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> flutter/android/key.properties
             echo "storeFile=../release.jks" >> flutter/android/key.properties
           else
-            echo "未配置签名密钥，使用 debug 签名..."
+            echo "No signing key configured, using debug signing..."
             keytool -genkey -v -keystore flutter/android/debug.jks \
               -storepass android -alias androiddebugkey -keypass android \
               -keyalg RSA -keysize 2048 -validity 10000 \
@@ -173,83 +190,39 @@ jobs:
           fi
 
       - name: Build Rust library for Android (arm64)
-        run: |
-          NDK=${{ steps.setup-ndk.outputs.ndk-path }}
-          TOOLCHAIN=$NDK/toolchains/llvm/prebuilt/linux-x86_64
-          SYSROOT=$TOOLCHAIN/sysroot
-          VCPKG_INCLUDE=$HOME/vcpkg/installed/arm64-android/include
-          
-          echo "=== Debug: Checking include paths ==="
-          echo "VCPKG_INCLUDE: $VCPKG_INCLUDE"
-          ls -la $VCPKG_INCLUDE/opus/ || echo "Opus headers not found!"
-          echo "LIBCLANG_PATH: $LIBCLANG_PATH"
-          
-          # Set cross-compiler for ring and other C code (use TARGET_* for cc-rs crate)
-          export TARGET_CC="$TOOLCHAIN/bin/aarch64-linux-android21-clang"
-          export TARGET_CXX="$TOOLCHAIN/bin/aarch64-linux-android21-clang++"
-          export TARGET_AR="$TOOLCHAIN/bin/llvm-ar"
-          export TARGET_RANLIB="$TOOLCHAIN/bin/llvm-ranlib"
-          export CC_aarch64_linux_android="$TOOLCHAIN/bin/aarch64-linux-android21-clang"
-          export CXX_aarch64_linux_android="$TOOLCHAIN/bin/aarch64-linux-android21-clang++"
-          export AR_aarch64_linux_android="$TOOLCHAIN/bin/llvm-ar"
-          
-          # Set clang target for Android aarch64 and include paths
-          # LIBCLANG_PATH is set globally from Install dependencies step
-          export BINDGEN_EXTRA_CLANG_ARGS="--target=aarch64-linux-android21 --sysroot=$SYSROOT -I$VCPKG_INCLUDE -I$SYSROOT/usr/include -I$SYSROOT/usr/include/aarch64-linux-android"
-          export CFLAGS_aarch64_linux_android="--sysroot=$SYSROOT -I$VCPKG_INCLUDE"
-          export CXXFLAGS_aarch64_linux_android="--sysroot=$SYSROOT -I$VCPKG_INCLUDE"
-          
-          echo "TARGET_CC: $TARGET_CC"
-          echo "BINDGEN_EXTRA_CLANG_ARGS: $BINDGEN_EXTRA_CLANG_ARGS"
-          
-          cargo ndk -t arm64-v8a -o flutter/android/app/src/main/jniLibs build --release --features flutter
         env:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
           ANDROID_NDK_ROOT: ${{ steps.setup-ndk.outputs.ndk-path }}
-          VCPKG_ROOT: /home/runner/vcpkg
+          VCPKG_ROOT: /opt/artifacts/vcpkg
+        run: |
+          ./flutter/ndk_arm64.sh
+          mkdir -p ./flutter/android/app/src/main/jniLibs/arm64-v8a
+          cp ${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/aarch64-linux-android/libc++_shared.so ./flutter/android/app/src/main/jniLibs/arm64-v8a/
+          cp ./target/aarch64-linux-android/release/liblibrustdesk.so ./flutter/android/app/src/main/jniLibs/arm64-v8a/librustdesk.so
 
       - name: Build Rust library for Android (armeabi-v7a)
-        run: |
-          NDK=${{ steps.setup-ndk.outputs.ndk-path }}
-          TOOLCHAIN=$NDK/toolchains/llvm/prebuilt/linux-x86_64
-          SYSROOT=$TOOLCHAIN/sysroot
-          VCPKG_INCLUDE=$HOME/vcpkg/installed/arm-android/include
-          
-          # Set cross-compiler for ring and other C code (use TARGET_* for cc-rs crate)
-          export TARGET_CC="$TOOLCHAIN/bin/armv7a-linux-androideabi21-clang"
-          export TARGET_CXX="$TOOLCHAIN/bin/armv7a-linux-androideabi21-clang++"
-          export TARGET_AR="$TOOLCHAIN/bin/llvm-ar"
-          export TARGET_RANLIB="$TOOLCHAIN/bin/llvm-ranlib"
-          export CC_armv7_linux_androideabi="$TOOLCHAIN/bin/armv7a-linux-androideabi21-clang"
-          export CXX_armv7_linux_androideabi="$TOOLCHAIN/bin/armv7a-linux-androideabi21-clang++"
-          export AR_armv7_linux_androideabi="$TOOLCHAIN/bin/llvm-ar"
-          
-          # Set clang target for Android armv7 and include paths
-          # LIBCLANG_PATH is set globally from Install dependencies step
-          export BINDGEN_EXTRA_CLANG_ARGS="--target=armv7a-linux-androideabi21 --sysroot=$SYSROOT -I$VCPKG_INCLUDE -I$SYSROOT/usr/include -I$SYSROOT/usr/include/arm-linux-androideabi"
-          export CFLAGS_armv7_linux_androideabi="--sysroot=$SYSROOT -I$VCPKG_INCLUDE"
-          export CXXFLAGS_armv7_linux_androideabi="--sysroot=$SYSROOT -I$VCPKG_INCLUDE"
-          
-          cargo ndk -t armeabi-v7a -o flutter/android/app/src/main/jniLibs build --release --features flutter
         env:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
           ANDROID_NDK_ROOT: ${{ steps.setup-ndk.outputs.ndk-path }}
-          VCPKG_ROOT: /home/runner/vcpkg
-
-      - name: Flutter pub get
+          VCPKG_ROOT: /opt/artifacts/vcpkg
         run: |
-          cd flutter
-          flutter pub get
+          ./flutter/ndk_arm.sh
+          mkdir -p ./flutter/android/app/src/main/jniLibs/armeabi-v7a
+          cp ${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/arm-linux-androideabi/libc++_shared.so ./flutter/android/app/src/main/jniLibs/armeabi-v7a/
+          cp ./target/armv7-linux-androideabi/release/liblibrustdesk.so ./flutter/android/app/src/main/jniLibs/armeabi-v7a/librustdesk.so
 
       - name: Build APK
+        env:
+          JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
         run: |
+          export PATH=/usr/lib/jvm/java-17-openjdk-amd64/bin:$PATH
+          # Increase Gradle JVM memory
+          sed -i "s/org.gradle.jvmargs=-Xmx1024M/org.gradle.jvmargs=-Xmx2g/g" ./flutter/android/gradle.properties
+          # Use debug sign config if no release key
+          sed -i "s/signingConfigs.release/signingConfigs.debug/g" ./flutter/android/app/build.gradle
+          # Build
           cd flutter
-          flutter build apk --release
-
-      - name: Build App Bundle
-        run: |
-          cd flutter
-          flutter build appbundle --release
+          flutter build apk --release --target-platform android-arm64,android-arm
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
@@ -258,19 +231,11 @@ jobs:
           path: flutter/build/app/outputs/flutter-apk/app-release.apk
           retention-days: 30
 
-      - name: Upload AAB artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: rustdesk-android-aab
-          path: flutter/build/app/outputs/bundle/release/app-release.aab
-          retention-days: 30
-
       - name: Upload to Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v1
         with:
           files: |
             flutter/build/app/outputs/flutter-apk/app-release.apk
-            flutter/build/app/outputs/bundle/release/app-release.aab
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
