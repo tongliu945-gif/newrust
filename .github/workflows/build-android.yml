@@ -147,21 +147,22 @@ jobs:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
           ANDROID_NDK: ${{ steps.setup-ndk.outputs.ndk-path }}
 
-      - name: Install vcpkg dependencies (armeabi-v7a)
-        run: |
-          if ! ./flutter/build_android_deps.sh "armeabi-v7a"; then
-            find "${VCPKG_ROOT}/" -name "*.log" | while read -r _1; do
-              echo "$_1:"
-              echo "======"
-              cat "$_1"
-              echo "======"
-              echo ""
-            done
-            exit 1
-          fi
-        env:
-          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
-          ANDROID_NDK: ${{ steps.setup-ndk.outputs.ndk-path }}
+      # Temporarily disabled to debug arm64 build first
+      # - name: Install vcpkg dependencies (armeabi-v7a)
+      #   run: |
+      #     if ! ./flutter/build_android_deps.sh "armeabi-v7a"; then
+      #       find "${VCPKG_ROOT}/" -name "*.log" | while read -r _1; do
+      #         echo "$_1:"
+      #         echo "======"
+      #         cat "$_1"
+      #         echo "======"
+      #         echo ""
+      #       done
+      #       exit 1
+      #     fi
+      #   env:
+      #     ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+      #     ANDROID_NDK: ${{ steps.setup-ndk.outputs.ndk-path }}
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -211,17 +212,18 @@ jobs:
           cp ${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/aarch64-linux-android/libc++_shared.so ./flutter/android/app/src/main/jniLibs/arm64-v8a/
           cp ./target/aarch64-linux-android/release/liblibrustdesk.so ./flutter/android/app/src/main/jniLibs/arm64-v8a/librustdesk.so
 
-      - name: Build Rust library for Android (armeabi-v7a)
-        env:
-          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
-          ANDROID_NDK_ROOT: ${{ steps.setup-ndk.outputs.ndk-path }}
-          VCPKG_ROOT: /opt/artifacts/vcpkg
-        run: |
-          chmod +x ./flutter/ndk_arm.sh
-          ./flutter/ndk_arm.sh
-          mkdir -p ./flutter/android/app/src/main/jniLibs/armeabi-v7a
-          cp ${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/arm-linux-androideabi/libc++_shared.so ./flutter/android/app/src/main/jniLibs/armeabi-v7a/
-          cp ./target/armv7-linux-androideabi/release/liblibrustdesk.so ./flutter/android/app/src/main/jniLibs/armeabi-v7a/librustdesk.so
+      # Temporarily disabled to debug arm64 build first
+      # - name: Build Rust library for Android (armeabi-v7a)
+      #   env:
+      #     ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+      #     ANDROID_NDK_ROOT: ${{ steps.setup-ndk.outputs.ndk-path }}
+      #     VCPKG_ROOT: /opt/artifacts/vcpkg
+      #   run: |
+      #     chmod +x ./flutter/ndk_arm.sh
+      #     ./flutter/ndk_arm.sh
+      #     mkdir -p ./flutter/android/app/src/main/jniLibs/armeabi-v7a
+      #     cp ${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/arm-linux-androideabi/libc++_shared.so ./flutter/android/app/src/main/jniLibs/armeabi-v7a/
+      #     cp ./target/armv7-linux-androideabi/release/liblibrustdesk.so ./flutter/android/app/src/main/jniLibs/armeabi-v7a/librustdesk.so
 
       - name: Build APK
         env:
@@ -234,7 +236,8 @@ jobs:
           sed -i "s/signingConfigs.release/signingConfigs.debug/g" ./flutter/android/app/build.gradle
           # Build
           cd flutter
-          flutter build apk --release --target-platform android-arm64,android-arm
+          # Only build arm64 for now to debug
+          flutter build apk --release --target-platform android-arm64
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
