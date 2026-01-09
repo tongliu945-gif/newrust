@@ -138,6 +138,10 @@ jobs:
             done
             exit 1
           fi
+          # Verify opus headers are installed
+          echo "=== Verifying vcpkg installed files ==="
+          ls -la $VCPKG_ROOT/installed/arm64-android/include/ || true
+          ls -la $VCPKG_ROOT/installed/arm64-android/include/opus/ || true
         env:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
           ANDROID_NDK: ${{ steps.setup-ndk.outputs.ndk-path }}
@@ -195,6 +199,8 @@ jobs:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
           ANDROID_NDK_ROOT: ${{ steps.setup-ndk.outputs.ndk-path }}
           VCPKG_ROOT: /opt/artifacts/vcpkg
+          # Set bindgen to find vcpkg headers
+          BINDGEN_EXTRA_CLANG_ARGS: "--sysroot=${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/sysroot -I/opt/artifacts/vcpkg/installed/arm64-android/include"
         run: |
           chmod +x ./flutter/ndk_arm64.sh
           ./flutter/ndk_arm64.sh
@@ -207,6 +213,8 @@ jobs:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
           ANDROID_NDK_ROOT: ${{ steps.setup-ndk.outputs.ndk-path }}
           VCPKG_ROOT: /opt/artifacts/vcpkg
+          # Set bindgen to find vcpkg headers (arm uses arm-android after move)
+          BINDGEN_EXTRA_CLANG_ARGS: "--sysroot=${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/sysroot -I/opt/artifacts/vcpkg/installed/arm-android/include"
         run: |
           chmod +x ./flutter/ndk_arm.sh
           ./flutter/ndk_arm.sh
