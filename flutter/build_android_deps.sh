@@ -66,7 +66,79 @@ function build {
 
   echo "*** [$ANDROID_ABI][Start] Build and install vcpkg dependencies"
   pushd "$SCRIPTDIR/.."
-  $VCPKG_ROOT/vcpkg install --triplet $VCPKG_TARGET --x-install-root="$VCPKG_ROOT/installed"
+  
+  # === DEBUG: Print environment and paths ===
+  echo "=========================================="
+  echo "DEBUG: Environment Variables"
+  echo "=========================================="
+  echo "VCPKG_ROOT=$VCPKG_ROOT"
+  echo "ANDROID_NDK_HOME=$ANDROID_NDK_HOME"
+  echo "ANDROID_NDK=$ANDROID_NDK"
+  echo "VCPKG_TARGET=$VCPKG_TARGET"
+  echo "PWD=$(pwd)"
+  echo ""
+  
+  echo "=========================================="
+  echo "DEBUG: vcpkg version"
+  echo "=========================================="
+  $VCPKG_ROOT/vcpkg version || echo "Failed to get vcpkg version"
+  echo ""
+  
+  echo "=========================================="
+  echo "DEBUG: vcpkg.json content"
+  echo "=========================================="
+  cat vcpkg.json
+  echo ""
+  
+  echo "=========================================="
+  echo "DEBUG: overlay-ports directory (res/vcpkg)"
+  echo "=========================================="
+  ls -la res/vcpkg/ || echo "res/vcpkg not found!"
+  echo ""
+  
+  echo "=========================================="
+  echo "DEBUG: opus overlay-port files"
+  echo "=========================================="
+  ls -la res/vcpkg/opus/ || echo "res/vcpkg/opus not found!"
+  cat res/vcpkg/opus/vcpkg.json || echo "opus vcpkg.json not found!"
+  echo ""
+  
+  # Run vcpkg install with verbose output
+  echo "=========================================="
+  echo "DEBUG: Running vcpkg install"
+  echo "=========================================="
+  echo "Command: $VCPKG_ROOT/vcpkg install --triplet $VCPKG_TARGET --x-install-root=$VCPKG_ROOT/installed --overlay-ports=$SCRIPTDIR/../res/vcpkg"
+  
+  $VCPKG_ROOT/vcpkg install --triplet $VCPKG_TARGET --x-install-root="$VCPKG_ROOT/installed" --overlay-ports="$SCRIPTDIR/../res/vcpkg"
+  
+  # === DEBUG: Verify installation ===
+  echo "=========================================="
+  echo "DEBUG: Checking installed files"
+  echo "=========================================="
+  echo "Installed directory structure:"
+  ls -la "$VCPKG_ROOT/installed/" || echo "installed/ dir not found!"
+  echo ""
+  
+  echo "Target triplet directory:"
+  ls -la "$VCPKG_ROOT/installed/$VCPKG_TARGET/" || echo "$VCPKG_TARGET dir not found!"
+  echo ""
+  
+  echo "Include directory:"
+  ls -la "$VCPKG_ROOT/installed/$VCPKG_TARGET/include/" || echo "include/ dir not found!"
+  echo ""
+  
+  echo "Opus headers:"
+  ls -la "$VCPKG_ROOT/installed/$VCPKG_TARGET/include/opus/" || echo "opus/ dir not found - THIS IS THE PROBLEM!"
+  echo ""
+  
+  echo "Lib directory:"
+  ls -la "$VCPKG_ROOT/installed/$VCPKG_TARGET/lib/" || echo "lib/ dir not found!"
+  echo ""
+  
+  echo "Looking for libopus:"
+  find "$VCPKG_ROOT/installed/$VCPKG_TARGET/" -name "*opus*" 2>/dev/null || echo "No opus files found!"
+  echo "=========================================="
+  
   popd
   head -n 100 "${VCPKG_ROOT}/buildtrees/ffmpeg/build-$VCPKG_TARGET-rel-out.log" || true
   echo "*** [$ANDROID_ABI][Finished] Build and install vcpkg dependencies"
