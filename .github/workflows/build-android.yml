@@ -16,6 +16,7 @@ env:
   CARGO_NDK_VERSION: "3.1.2"
   NDK_VERSION: "r27c"
   VCPKG_COMMIT_ID: "120deac3062162151622ca4860575a33844ba10b"
+  VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
 
 jobs:
   build-android:
@@ -199,9 +200,11 @@ jobs:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
           ANDROID_NDK_ROOT: ${{ steps.setup-ndk.outputs.ndk-path }}
           VCPKG_ROOT: /opt/artifacts/vcpkg
-          # Set bindgen to find vcpkg headers
-          BINDGEN_EXTRA_CLANG_ARGS: "--sysroot=${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/sysroot -I/opt/artifacts/vcpkg/installed/arm64-android/include"
         run: |
+          # Debug: verify headers exist
+          echo "=== Checking opus headers ==="
+          ls -la /opt/artifacts/vcpkg/installed/arm64-android/include/opus/ || echo "opus dir not found!"
+          
           chmod +x ./flutter/ndk_arm64.sh
           ./flutter/ndk_arm64.sh
           mkdir -p ./flutter/android/app/src/main/jniLibs/arm64-v8a
@@ -213,8 +216,6 @@ jobs:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
           ANDROID_NDK_ROOT: ${{ steps.setup-ndk.outputs.ndk-path }}
           VCPKG_ROOT: /opt/artifacts/vcpkg
-          # Set bindgen to find vcpkg headers (arm uses arm-android after move)
-          BINDGEN_EXTRA_CLANG_ARGS: "--sysroot=${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/sysroot -I/opt/artifacts/vcpkg/installed/arm-android/include"
         run: |
           chmod +x ./flutter/ndk_arm.sh
           ./flutter/ndk_arm.sh
